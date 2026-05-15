@@ -592,11 +592,56 @@ textarea { resize: vertical; min-height: 80px; }
       <button class="nav-tab active" id="tab-main" onclick="switchTab('main')">REGISTRO</button>
       <button class="nav-tab" id="tab-dashboard" onclick="switchTab('dashboard')">DASHBOARD</button>
       <button class="nav-tab" id="tab-hoja" onclick="switchTab('hoja')">HOJA DE VIDA</button>
+      <button class="nav-tab" id="tab-tickets" onclick="switchTab('tickets')">🎫 TICKETS</button>
+      <button onclick="showView('view-tickets'); cargarTicketsPendientes();" class="nav-btn">
+  
+</button>
       <button class="nav-tab" id="tab-admin-panel" onclick="switchTab('admin-panel')" style="display:none;">ADMIN</button>
     </div>
   </div>
 </header>
 
+
+<div id="view-tickets" style="display:none;padding:2rem 1.25rem;max-width:1100px;margin:0 auto;">
+  <p style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);letter-spacing:0.15em;margin-bottom:0.5rem;">ADMINISTRACIÓN</p>
+  <h2 style="font-size:1.4rem;font-weight:700;margin-bottom:1.25rem;">Tickets <span style="color:var(--accent)">Abiertos</span></h2>
+
+  <div id="tickets-container" style="display:grid; gap:1rem;">
+    </div>
+</div>
+
+<style>
+  .ticket-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    padding: 1rem;
+    border-radius: 4px;
+    position: relative;
+  }
+  .ticket-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+  .badge-tipo {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+  }
+  .btn-cerrar {
+    background: #10b981; /* Verde */
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    cursor: pointer;
+    margin-top: 0.75rem;
+  }
+</style>
 <main style="max-width:1100px;margin:0 auto;padding:2rem 1.25rem;">
 
 <!-- ═══════════ TAB: MAIN (REGISTRO) ═══════════ -->
@@ -611,7 +656,7 @@ textarea { resize: vertical; min-height: 80px; }
     <div class="sede-card" onclick="selectSede('Girardota')" id="card-Girardota" style="padding:1.5rem;text-align:center;">
       <div style="font-size:2.5rem;">🏭</div>
       <div style="font-size:1rem;font-weight:700;margin-top:0.5rem;">Girardota</div>
-      <div style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem;font-family:var(--mono);">PLANTA NORTE</div>
+      <div style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem;font-family:var(--mono);">PLANTA ANDES</div>
     </div>
     <div class="sede-card" onclick="selectSede('Aranjuez')" id="card-Aranjuez" style="padding:1.5rem;text-align:center;">
       <div style="font-size:2.5rem;">🏢</div>
@@ -976,6 +1021,14 @@ textarea { resize: vertical; min-height: 80px; }
     </div>
   </div>
 
+  <!-- Después del div de chart-sistemas -->
+<div class="dash-card" style="margin-bottom:1.5rem;">
+  <p style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);letter-spacing:0.1em;margin-bottom:1rem;">🔩 COMPONENTES / OBSERVACIONES MÁS FRECUENTES</p>
+  <div style="position:relative;height:220px;">
+    <canvas id="chart-componentes"></canvas>
+  </div>
+</div>
+
   <!-- Recurrence Alerts -->
   <div class="dash-card">
     <p style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);letter-spacing:0.1em;margin-bottom:1rem;">⚠ ALERTAS DE RECURRENCIA (mismo sistema &lt;30 días)</p>
@@ -1088,7 +1141,50 @@ textarea { resize: vertical; min-height: 80px; }
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxa2IxlTeD4sgee9BuQZdHgAgj7e5U0pwQFed7Y6Ah7ezdgsr0o_h6Ax7x2lpUZdmcx/exec'; // Reemplaza con tu URL real
 const SHEET_ID   = '1VA3er4AWVDyoVOJih4rcqFagU2hD617VDaGnWwG7Z_0';
 const DRIVE_FOLDER = '1yTAtoHJmhOX1a-d7kBTV-yhvUSgmyunb';
-const ADMIN_PIN  = '1234';
+const ADMIN_PIN = '1234';
+
+const KM_DIFERENCIA = {
+  // 8000 km
+  'EYX466': 8000,
+  'GUQ633': 8000, 'GUQ642': 8000, 'GUQ646': 8000,
+  'GUR182': 8000,
+  'TMV723': 8000, 'TMV725': 8000, 'TMV730': 8000, 'TMV733': 8000,
+  'TMV790': 8000, 'TMV880': 8000, 'TMV958': 8000,
+  'TMW056': 8000, 'TMW240': 8000, 'TMW767': 8000, 'TMW770': 8000,
+  'TMW771': 8000, 'TMW774': 8000, 'TMW775': 8000,
+  'TMX036': 8000, 'TMX037': 8000, 'TMX038': 8000, 'TMX041': 8000,
+  'TMX042': 8000, 'TMX331': 8000, 'TMX332': 8000, 'TMX666': 8000,
+  'VCM259': 8000,
+  'VEI379': 8000, 'VEI387': 8000,
+  'VEJ193': 8000,
+  'VEK250': 8000, 'VEK263': 8000,
+  'VEL949': 8000,
+  'VEM355': 8000,
+  'VEN027': 8000,
+  'VEP916': 8000,
+  'WNZ753': 8000, 'WNZ755': 8000,
+  // 5000 km
+  'LGU364': 5000, 'LGU368': 5000,
+  // 10000 km
+  'PRZ254': 10000, 'PRZ362': 10000,
+  'KWV126': 10000,
+  // 16000 km
+  'LCN251': 16000,
+  'LCO252': 16000, 'LCO265': 16000,
+  'LJT727': 16000, 'LJT729': 16000, 'LJT735': 16000,
+  'LJT736': 16000, 'LJT742': 16000,
+  'LJV510': 16000, 'LJV511': 16000, 'LJV512': 16000,
+  // 20000 km
+  'PSX834': 20000, 'PSX838': 20000, 'PSX839': 20000,
+  'PSX938': 20000, 'PSX939': 20000, 'PSX989': 20000,
+  'QJX393': 20000, 'QJX415': 20000, 'QJX708': 20000,
+  'QJX762': 20000, 'QJX763': 20000, 'QJX801': 20000, 'QJX802': 20000
+};
+
+function getDiferencia(placa) {
+  const placaLimpia = placa.replace(/\s/g, '').toUpperCase();
+  return KM_DIFERENCIA[placaLimpia] || null;
+}
 
 // ══════════════════════════════════════════
 //  STATE
@@ -1102,7 +1198,7 @@ let vehiclesCache = []; // loaded from Firestore
 let allRecordsCache = []; // for dashboard
 
 // Charts instances
-let chartDonut = null, chartTop5 = null, chartSistemas = null;
+let chartDonut = null, chartTop5 = null, chartSistemas = null, chartComponentes = null;
 
 
 let timerBusqueda; // Variable global para controlar el tiempo de espera
@@ -1126,6 +1222,116 @@ function autobusquedaHoja() {
   }
 }
 
+
+// Cargar tickets que tengan estado "ABIERTO"
+async function cargarTicketsPendientes() {
+  const container = document.getElementById('tickets-container');
+  container.innerHTML = '<p style="color:var(--muted);font-family:var(--mono);font-size:0.8rem;letter-spacing:0.1em;">CONSULTANDO TICKETS...</p>';
+
+  waitForFirebase(async () => {
+    try {
+      const { collection, getDocs, query, where } = window._fbModules;
+      const q = query(collection(window._db,'registros'), where('estado','==','ABIERTO'));
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        container.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--muted);font-family:var(--mono);">✅ No hay tickets abiertos.</p>';
+        return;
+      }
+
+      container.innerHTML = '';
+      snap.forEach(docSnap => {
+        const t = docSnap.data();
+        const ts = t.timestamp?.toDate ? t.timestamp.toDate().toLocaleString('es-CO') : '—';
+        const tipoCls = t.tipo==='PREVENTIVO' ? 'tipo-prev' : 'tipo-corr';
+        const borderColor = t.tipo==='PREVENTIVO' ? 'var(--green)' : 'var(--red)';
+
+        const card = document.createElement('div');
+        card.className = 'ticket-card';
+        card.id = 'ticket-' + docSnap.id;
+        card.style.borderLeftColor = borderColor;
+        card.innerHTML = `
+          <div class="ticket-header">
+            <strong style="color:var(--accent);font-size:1.1rem;">${t.placa||'—'}</strong>
+            <span class="tipo-badge ${tipoCls}">${t.tipo||'—'}</span>
+          </div>
+          <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem;">
+            <div>Sede: ${t.sede||'—'} | Operario: ${t.operario||'—'}</div>
+            <div>KM: ${t.kmActual||'—'} | Taller: ${t.taller||'—'} | ${ts}</div>
+            ${t.sistema ? `<div>Sistema: ${t.sistema}</div>` : ''}
+          </div>
+          // Dentro del forEach de cargarTicketsPendientes, el botón debe ser:
+         <button class="btn-cerrar" onclick="cerrarTicketFirestore('${docSnap.id}','${t.placa}','${t.tipo}')">✓ VALIDAR Y CERRAR</button>
+        `;
+        container.appendChild(card);
+      });
+    } catch(e) {
+      container.innerHTML = `<p style="color:var(--red);font-family:var(--mono);">Error: ${e.message}</p>`;
+    }
+  });
+}
+
+// Función para cerrar el ticket con la pregunta de cumplimiento
+async function cerrarTicketFirestore(docId, placa, tipo) {
+  const tipoTexto = tipo === 'PREVENTIVO' ? 'preventivo' : 'correctivo';
+  const pregunta = tipo === 'PREVENTIVO'
+    ? `¿El mantenimiento preventivo de ${placa} se realizó correctamente y el vehículo quedó en óptimas condiciones?`
+    : `¿El mantenimiento correctivo de ${placa} solucionó el problema reportado y el vehículo está listo para operar?`;
+
+  // PRIMER confirm
+  const cumple = confirm(pregunta);
+
+  // SEGUNDO confirm — solo si el primero fue OK
+  if (cumple) {
+    const seguro = confirm(`¿Estás seguro que el mantenimiento ${tipoTexto} de ${placa} cumplió con todos los estándares de calidad?`);
+    if (!seguro) {
+      showToast('⚠️', 'Cierre cancelado', 'error-t');
+      return;
+    }
+  }
+
+  const respuesta = cumple ? '✅ CONFORME' : '⚠️ NO CONFORME';
+
+  showLoader('CERRANDO TICKET...');
+  waitForFirebase(async () => {
+    try {
+      const { collection, doc, setDoc, getDoc } = window._fbModules;
+      const db = window._db;
+      const ref = doc(collection(db, 'registros'), docId);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) throw new Error('Registro no encontrado');
+
+      await setDoc(ref, {
+        ...snap.data(),
+        estado: 'CERRADO',
+        respuestaCierre: respuesta,
+        fechaCierre: new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })
+      }, { merge: true });
+
+      // Sincronizar cierre en Google Sheets
+      const data = snap.data();
+      await fetch(
+        `${SCRIPT_URL}?action=closeTicket&fila=${data.filaSheet || ''}&respuesta=${encodeURIComponent(respuesta)}`,
+        { method: 'GET', mode: 'no-cors' }
+      );
+
+      hideLoader();
+      showToast(cumple ? '✅' : '⚠️', `Ticket cerrado — ${respuesta}`, 'success');
+
+      // Animar y remover card
+      const card = document.getElementById('ticket-' + docId);
+      if (card) {
+        card.style.transition = 'opacity 0.4s, transform 0.4s';
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(40px)';
+        setTimeout(() => card.remove(), 420);
+      }
+    } catch (e) {
+      hideLoader();
+      showToast('❌', 'Error al cerrar: ' + e.message, 'error-t');
+    }
+  });
+}
 // ══════════════════════════════════════════
 //  FIREBASE WAIT
 // ══════════════════════════════════════════
@@ -1138,7 +1344,7 @@ function waitForFirebase(cb) {
 //  TABS
 // ══════════════════════════════════════════
 function switchTab(tab) {
-  ['main','dashboard','hoja','admin-panel'].forEach(t => {
+  ['main','dashboard','hoja','admin-panel','tickets'].forEach(t => {
     document.getElementById('view-' + t).style.display = 'none';
     const btn = document.getElementById('tab-' + t);
     if (btn) btn.classList.remove('active');
@@ -1148,6 +1354,8 @@ function switchTab(tab) {
   if (btn) btn.classList.add('active');
   if (tab === 'dashboard') loadDashboard();
   if (tab === 'admin-panel') loadVehiclesAdmin();
+  // Agrega esta línea junto a las otras condiciones al final de switchTab
+if (tab === 'tickets') cargarTicketsPendientes();
 }
 
 // ══════════════════════════════════════════
@@ -1362,26 +1570,71 @@ async function saveToFirestore(data) {
 // ══════════════════════════════════════════
 // REEMPLAZA esta función en tu index.html:
 
-async function sendToScript(payload) {
+async function sendToScript(payload, firestoreId) {
   try {
-    // IMPORTANTE: Asegúrate de que el campo se llame "tipo" como pide tu Script
     if (!payload.tipo && payload.tipoRegistro) payload.tipo = payload.tipoRegistro;
 
-    await fetch(SCRIPT_URL, {
+    const response = await fetch(SCRIPT_URL, {
       method: 'POST',
-      mode: 'no-cors', // Mantenemos no-cors pero enviamos BODY
+      mode: 'no-cors',
       cache: 'no-cache',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload) // AQUÍ viajan las fotos seguras
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-    
-    console.log("✅ Enviado con éxito al Script");
+
+    console.log('✅ Enviado al Script');
   } catch (e) {
-    console.error("❌ Error enviando al Script:", e);
+    console.error('❌ Error enviando al Script:', e);
   }
 }
+
+
+
+async function actualizarKmRutina(placa, kmActual) {
+  return new Promise((resolve) => {
+    waitForFirebase(async () => {
+      try {
+        const { collection, getDocs, doc, setDoc, query, where } = window._fbModules;
+        const db = window._db;
+        const diferencia = getDiferencia(placa);
+        if (!diferencia) {
+          console.warn('⚠️ Placa sin diferencia configurada:', placa);
+          resolve(false);
+          return;
+        }
+
+        const q = query(collection(db, 'vehiculos'), where('placa', '==', placa));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          console.warn('⚠️ Vehículo no encontrado en Firestore:', placa);
+          resolve(false);
+          return;
+        }
+
+        const vehiculoDoc = snap.docs[0];
+        const vehiculoData = vehiculoDoc.data();
+        const kmRutinaActual = parseFloat(vehiculoData.kmRutina) || parseFloat(kmActual);
+        const nuevoKmRutina  = kmRutinaActual + diferencia;
+
+        await setDoc(
+          doc(collection(db, 'vehiculos'), vehiculoDoc.id),
+          { ...vehiculoData, kmRutina: nuevoKmRutina }
+        );
+
+        // Actualizar cache local
+        const idx = vehiclesCache.findIndex(v => v.placa === placa);
+        if (idx !== -1) vehiclesCache[idx].kmRutina = nuevoKmRutina;
+
+        console.log(`✅ KM Rutina actualizado: ${placa} → ${nuevoKmRutina}`);
+        resolve(nuevoKmRutina);
+      } catch (e) {
+        console.error('❌ Error actualizando kmRutina:', e);
+        resolve(false);
+      }
+    });
+  });
+}
+
 
 // ══════════════════════════════════════════
 //  SUBMIT PREVENTIVO
@@ -1403,20 +1656,31 @@ async function submitPreventivo() {
 
   showLoader('ENVIANDO REGISTRO...');
   const payload = {
-    tipo:'PREVENTIVO', sede:currentSede, placa, kmRutina, kmActual,
-    taller, operario, cedula, sistema:'', componente:'',
-    foto1: imageData['1']||'', foto2: imageData['2']||''
-  };
+  tipo:'PREVENTIVO', sede:currentSede, placa, kmRutina, kmActual,
+  taller, operario, cedula, sistema:'', componente:'',
+  foto1: imageData['1']||'', foto2: imageData['2']||'',
+  estado: 'ABIERTO'   // <-- NUEVO
+};
   try {
-    await saveToFirestore(payload);
-    await sendToScript({ ...payload, timestamp: getTimestamp() });
-    hideLoader();
-    showToast('✅','Mantenimiento Preventivo registrado','success');
-    resetForm('preventivo');
-  } catch(e) {
-    hideLoader();
-    showToast('❌','Error al guardar. ' + e.message,'error-t');
-  }
+  await saveToFirestore(payload);
+  await sendToScript({ ...payload, timestamp: getTimestamp() });
+
+  // Actualizar próxima rutina automáticamente
+  const nuevoKm = await actualizarKmRutina(placa, kmActual);
+  const msgExtra = nuevoKm
+    ? ` — Próx. rutina: ${nuevoKm.toLocaleString()} km`
+    : '';
+
+  hideLoader();
+  showToast('✅', 'Preventivo registrado' + msgExtra, 'success');
+
+  // Refrescar placas para ver el nuevo kmRutina en el select
+  if (currentSede) populatePlacas(currentSede);
+  resetForm('preventivo');
+} catch (e) {
+  hideLoader();
+  showToast('❌', 'Error al guardar. ' + e.message, 'error-t');
+}
 }
 
 // ══════════════════════════════════════════
@@ -1435,10 +1699,11 @@ async function submitCorrectivo() {
 
   showLoader('ENVIANDO REGISTRO CORRECTIVO...');
   const payload = {
-    tipo:'CORRECTIVO', sede:currentSede, placa, kmRutina:'', kmActual,
-    taller, operario, cedula, sistema, componente,
-    foto1: imageData['3']||'', foto2: imageData['4']||''
-  };
+  tipo:'CORRECTIVO', sede:currentSede, placa, kmRutina:'', kmActual,
+  taller, operario, cedula, sistema, componente,
+  foto1: imageData['3']||'', foto2: imageData['4']||'',
+  estado: 'ABIERTO'   // <-- NUEVO
+};
   try {
     await saveToFirestore(payload);
     await sendToScript({ ...payload, timestamp: getTimestamp() });
@@ -1641,28 +1906,29 @@ function renderDashboard(records) {
   document.getElementById('dash-corr').textContent  = corr;
   document.getElementById('dash-llan').textContent  = llan;
 
-  // Donut
+  // ── Donut ──────────────────────────────────────────────────────────
   if (chartDonut) chartDonut.destroy();
   const ctxD = document.getElementById('chart-donut').getContext('2d');
   chartDonut = new Chart(ctxD, {
-    type:'doughnut',
-    data:{
-      labels:['Preventivo','Correctivo','Llantas'],
-      datasets:[{
-        data:[prev,corr,llan],
-        backgroundColor:['rgba(34,197,94,0.8)','rgba(239,68,68,0.8)','rgba(59,130,246,0.8)'],
-        borderColor:['#22c55e','#ef4444','#3b82f6'],
-        borderWidth:2
+    type: 'doughnut',
+    data: {
+      labels: ['Preventivo','Correctivo','Llantas'],
+      datasets: [{
+        data: [prev, corr, llan],
+        backgroundColor: ['rgba(34,197,94,0.8)','rgba(239,68,68,0.8)','rgba(59,130,246,0.8)'],
+        borderColor:     ['#22c55e','#ef4444','#3b82f6'],
+        borderWidth: 2
       }]
     },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'#e8eaf0',font:{family:'DM Sans'}}}}
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color:'#e8eaf0', font:{ family:'DM Sans' } } } }
     }
   });
 
-  // Top 5 correctivos por placa
   const corrRecs = records.filter(r => r.tipo==='CORRECTIVO');
+
+  // ── Top 5 correctivos por placa ────────────────────────────────────
   const byPlaca = {};
   corrRecs.forEach(r => { byPlaca[r.placa] = (byPlaca[r.placa]||0)+1; });
   const top5 = Object.entries(byPlaca).sort((a,b)=>b[1]-a[1]).slice(0,5);
@@ -1670,51 +1936,104 @@ function renderDashboard(records) {
   if (chartTop5) chartTop5.destroy();
   const ctxT = document.getElementById('chart-top5').getContext('2d');
   chartTop5 = new Chart(ctxT, {
-    type:'bar',
-    data:{
-      labels: top5.map(x=>x[0])||['—'],
-      datasets:[{ label:'Correctivos', data:top5.map(x=>x[1])||[0],
+    type: 'bar',
+    data: {
+      labels: top5.map(x=>x[0]) || ['—'],
+      datasets: [{ label:'Correctivos', data: top5.map(x=>x[1]) || [0],
         backgroundColor:'rgba(239,68,68,0.7)', borderColor:'#ef4444', borderWidth:1, borderRadius:3 }]
     },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{ticks:{color:'#6b7a9a'},grid:{color:'rgba(42,49,71,0.5)'}},
-        y:{ticks:{color:'#6b7a9a',stepSize:1},grid:{color:'rgba(42,49,71,0.5)'}}
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks:{ color:'#6b7a9a' },           grid:{ color:'rgba(42,49,71,0.5)' } },
+        y: { ticks:{ color:'#6b7a9a', stepSize:1 }, grid:{ color:'rgba(42,49,71,0.5)' } }
       }
     }
   });
 
-  // Sistemas
+  // ── Sistemas más afectados ─────────────────────────────────────────
   const sysCount = {};
-  corrRecs.forEach(r => { if(r.sistema) sysCount[r.sistema]=(sysCount[r.sistema]||0)+1; });
+  corrRecs.forEach(r => { if(r.sistema) sysCount[r.sistema] = (sysCount[r.sistema]||0)+1; });
   const sysEntries = Object.entries(sysCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
 
   if (chartSistemas) chartSistemas.destroy();
   const ctxS = document.getElementById('chart-sistemas').getContext('2d');
   chartSistemas = new Chart(ctxS, {
-    type:'bar',
-    data:{
-      labels: sysEntries.map(x=>x[0])||['—'],
-      datasets:[{ label:'Incidencias', data:sysEntries.map(x=>x[1])||[0],
+    type: 'bar',
+    data: {
+      labels: sysEntries.map(x=>x[0]) || ['—'],
+      datasets: [{ label:'Incidencias', data: sysEntries.map(x=>x[1]) || [0],
         backgroundColor:'rgba(245,158,11,0.7)', borderColor:'#f59e0b', borderWidth:1, borderRadius:3 }]
     },
-    options:{
-      indexAxis:'y', responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{ticks:{color:'#6b7a9a',stepSize:1},grid:{color:'rgba(42,49,71,0.5)'}},
-        y:{ticks:{color:'#e8eaf0',font:{size:11}},grid:{color:'rgba(42,49,71,0.3)'}}
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks:{ color:'#6b7a9a', stepSize:1 }, grid:{ color:'rgba(42,49,71,0.5)' } },
+        y: { ticks:{ color:'#e8eaf0', font:{ size:11 } }, grid:{ color:'rgba(42,49,71,0.3)' } }
       }
     }
   });
 
-  // Recurrence detection
-  const recList = document.getElementById('recurrence-list');
-  const now = Date.now();
+  // ── Componentes / Observaciones más frecuentes ─────────────────────
+  const compCount = {};
+  corrRecs.forEach(r => {
+    if (r.componente && r.componente.trim() !== '') {
+      const comp = r.componente.trim().substring(0, 45);
+      compCount[comp] = (compCount[comp]||0)+1;
+    }
+  });
+  const compEntries = Object.entries(compCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  if (chartComponentes) chartComponentes.destroy();
+  const ctxC = document.getElementById('chart-componentes').getContext('2d');
+  chartComponentes = new Chart(ctxC, {
+    type: 'bar',
+    data: {
+      labels: compEntries.length > 0 ? compEntries.map(x=>x[0]) : ['Sin datos'],
+      datasets: [{
+        label: 'Frecuencia',
+        data:  compEntries.length > 0 ? compEntries.map(x=>x[1]) : [0],
+        backgroundColor: 'rgba(168,85,247,0.7)',
+        borderColor:     '#a855f7',
+        borderWidth: 1,
+        borderRadius: 3
+      }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => compEntries[items[0].dataIndex]?.[0] || ''
+          }
+        }
+      },
+      scales: {
+        x: { ticks:{ color:'#6b7a9a', stepSize:1 }, grid:{ color:'rgba(42,49,71,0.5)' } },
+        y: {
+          ticks: {
+            color: '#e8eaf0',
+            font:  { size: 11 },
+            callback: function(val) {
+              const label = this.getLabelForValue(val);
+              return label.length > 32 ? label.substring(0, 30) + '…' : label;
+            }
+          },
+          grid: { color:'rgba(42,49,71,0.3)' }
+        }
+      }
+    }
+  });
+
+  // ── Alertas de recurrencia ─────────────────────────────────────────
+  const recList    = document.getElementById('recurrence-list');
+  const now        = Date.now();
   const thirtyDays = 30*24*60*60*1000;
-  const pairs = {};
+  const pairs      = {};
+
   corrRecs.forEach(r => {
     const ts = r.timestamp?.toDate ? r.timestamp.toDate().getTime() : 0;
     if (!ts) return;
@@ -1722,13 +2041,14 @@ function renderDashboard(records) {
     if (!pairs[key]) pairs[key] = [];
     pairs[key].push({ ts, taller:r.taller, operario:r.operario });
   });
+
   const alerts = [];
   Object.entries(pairs).forEach(([key, entries]) => {
     if (entries.length < 2) return;
     entries.sort((a,b)=>b.ts-a.ts);
-    for (let i=0;i<entries.length-1;i++) {
+    for (let i=0; i<entries.length-1; i++) {
       if (entries[i].ts - entries[i+1].ts < thirtyDays) {
-        const [placa,sistema] = key.split('||');
+        const [placa, sistema] = key.split('||');
         alerts.push({ placa, sistema, count:entries.length, lastTs:entries[0].ts });
         break;
       }
@@ -1744,7 +2064,6 @@ function renderDashboard(records) {
       </div>`).join('');
   }
 }
-
 // ══════════════════════════════════════════
 //  ADMIN — Vehicles (Firestore: vehiculos)
 // ══════════════════════════════════════════
