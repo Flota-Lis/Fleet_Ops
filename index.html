@@ -1260,7 +1260,7 @@ async function cargarTicketsPendientes() {
             <div>KM: ${t.kmActual||'—'} | Taller: ${t.taller||'—'} | ${ts}</div>
             ${t.sistema ? `<div>Sistema: ${t.sistema}</div>` : ''}
           </div>
-          // Dentro del forEach de cargarTicketsPendientes, el botón debe ser:
+         
          <button class="btn-cerrar" onclick="cerrarTicketFirestore('${docSnap.id}','${t.placa}','${t.tipo}')">✓ VALIDAR Y CERRAR</button>
         `;
         container.appendChild(card);
@@ -1275,22 +1275,27 @@ async function cargarTicketsPendientes() {
 async function cerrarTicketFirestore(docId, placa, tipo) {
   const tipoTexto = tipo === 'PREVENTIVO' ? 'preventivo' : 'correctivo';
   const pregunta = tipo === 'PREVENTIVO'
-    ? `¿El mantenimiento preventivo de ${placa} se realizó correctamente y el vehículo quedó en óptimas condiciones?`
-    : `¿El mantenimiento correctivo de ${placa} solucionó el problema reportado y el vehículo está listo para operar?`;
+    ? `¿El mantenimiento preventivo de ${placa} se realizó correctamente?`
+    : `¿El mantenimiento correctivo de ${placa} solucionó el problema?`;
 
-  // PRIMER confirm
   const cumple = confirm(pregunta);
 
-  // SEGUNDO confirm — solo si el primero fue OK
-  if (cumple) {
-    const seguro = confirm(`¿Estás seguro que el mantenimiento ${tipoTexto} de ${placa} cumplió con todos los estándares de calidad?`);
-    if (!seguro) {
-      showToast('⚠️', 'Cierre cancelado', 'error-t');
-      return;
-    }
+  // ✅ CORRECCIÓN: salir si el usuario cancela
+  if (cumple === false) {
+    showToast('⚠️', 'Cierre cancelado', 'error-t');
+    return;
   }
 
-  const respuesta = cumple ? '✅ CONFORME' : '⚠️ NO CONFORME';
+  // Segunda confirmación solo si aceptó la primera
+  const seguro = confirm(
+    `¿Estás seguro que el mantenimiento ${tipoTexto} de ${placa} cumplió con todos los estándares?`
+  );
+  if (!seguro) {
+    showToast('⚠️', 'Cierre cancelado', 'error-t');
+    return;
+  }
+
+  const respuesta = '✅ CONFORME';
 
   showLoader('CERRANDO TICKET...');
   waitForFirebase(async () => {
@@ -1308,7 +1313,6 @@ async function cerrarTicketFirestore(docId, placa, tipo) {
         fechaCierre: new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })
       }, { merge: true });
 
-      // Sincronizar cierre en Google Sheets
       const data = snap.data();
       await fetch(
         `${SCRIPT_URL}?action=closeTicket&fila=${data.filaSheet || ''}&respuesta=${encodeURIComponent(respuesta)}`,
@@ -1316,9 +1320,8 @@ async function cerrarTicketFirestore(docId, placa, tipo) {
       );
 
       hideLoader();
-      showToast(cumple ? '✅' : '⚠️', `Ticket cerrado — ${respuesta}`, 'success');
+      showToast('✅', `Ticket cerrado — ${respuesta}`, 'success');
 
-      // Animar y remover card
       const card = document.getElementById('ticket-' + docId);
       if (card) {
         card.style.transition = 'opacity 0.4s, transform 0.4s';
