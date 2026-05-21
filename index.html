@@ -1327,54 +1327,172 @@ async function actualizarKmRutina(placa, kmActual) {
 //  SUBMITS
 // ══════════════════════════════════════════
 async function submitPreventivo() {
-  const placa=document.getElementById('prev-placa').value, kmRutina=document.getElementById('prev-km-rutina').value;
-  const kmActual=document.getElementById('prev-km-actual').value, taller=document.getElementById('prev-taller').value;
-  const operario=document.getElementById('prev-operario').value, cedula=document.getElementById('prev-cedula').value;
+  const placa = document.getElementById('prev-placa').value;
+  const kmRutina = document.getElementById('prev-km-rutina').value;
+  const kmActual = document.getElementById('prev-km-actual').value;
+  const taller = document.getElementById('prev-taller').value;
+  const operario = document.getElementById('prev-operario').value;
+  const cedula = document.getElementById('prev-cedula').value;
+
   if (!req(placa,'Placa')||!req(kmActual,'Km Actual')||!req(taller,'Taller')||!req(operario,'Operario')||!req(cedula,'Cédula')) return;
-  const alert = document.getElementById('km-alert');
-  if (alert.classList.contains('error')) { if (!confirm('⚠️ Km fuera del rango permitido. ¿Continuar?')) return; }
+  
+  const alertEl = document.getElementById('km-alert');
+  if (alertEl.classList.contains('error')) { 
+    if (!confirm('⚠️ Km fuera del rango permitido. ¿Continuar?')) return; 
+  }
+
   showLoader('ENVIANDO REGISTRO...');
-  const payload = { tipo:'PREVENTIVO', sede:currentSede, placa, kmRutina, kmActual, taller, operario, cedula, sistema:'', componente:'', foto1:imageData['1']||'', foto2:imageData['2']||'', estado:'ABIERTO' };
+  
+  const payload = { 
+    tipo: 'PREVENTIVO', 
+    sede: currentSede, 
+    placa: placa, 
+    kmRutina: kmRutina, 
+    kmActual: kmActual, 
+    taller: taller, 
+    operario: operario, 
+    cedula: cedula, 
+    sistema: '', 
+    componente: '', 
+    foto1: imageData['1'] || '', 
+    foto2: imageData['2'] || '', 
+    estado: 'ABIERTO' 
+  };
+
   try {
-    await saveToFirestore(payload);
-    await sendToScript({ ...payload, timestamp: getTimestamp() });
+    // 1. Guardar en Firestore de forma local e inmediata
+    const docId = await saveToFirestore(payload);
+    
+    // 2. Sincronizar en Google Sheets mediante bypass de texto plano
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      cache: 'no-cache',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ ...payload, timestamp: getTimestamp(), filaSheet: docId })
+    });
+
     const nuevoKm = await actualizarKmRutina(placa, kmActual);
     hideLoader();
-    showToast('✅','Preventivo registrado' + (nuevoKm ? ` — Próx. rutina: ${nuevoKm.toLocaleString()} km` : ''),'success');
+    showToast('✅', 'Preventivo registrado con éxito en Sheets y Firebase', 'success');
+    
     if (currentSede) populatePlacas(currentSede);
     resetForm('preventivo');
-  } catch(e) { hideLoader(); showToast('❌','Error al guardar. '+e.message,'error-t'); }
+  } catch(e) { 
+    hideLoader(); 
+    showToast('❌', 'Error al guardar: ' + e.message, 'error-t'); 
+  }
 }
 
 async function submitCorrectivo() {
-  const placa=document.getElementById('corr-placa').value, sistema=document.getElementById('corr-sistema').value;
-  const componente=document.getElementById('corr-componente').value, kmActual=document.getElementById('corr-km').value;
-  const taller=document.getElementById('corr-taller').value, operario=document.getElementById('corr-operario').value;
-  const cedula=document.getElementById('corr-cedula').value;
+  const placa = document.getElementById('corr-placa').value;
+  const sistema = document.getElementById('corr-sistema').value;
+  const componente = document.getElementById('corr-componente').value;
+  const kmActual = document.getElementById('corr-km').value;
+  const taller = document.getElementById('corr-taller').value;
+  const operario = document.getElementById('corr-operario').value;
+  const cedula = document.getElementById('corr-cedula').value;
+
   if (!req(placa,'Placa')||!req(sistema,'Sistema')||!req(componente,'Componente')||!req(kmActual,'Km')||!req(taller,'Taller')||!req(operario,'Operario')||!req(cedula,'Cédula')) return;
+  
   showLoader('ENVIANDO REGISTRO CORRECTIVO...');
-  const payload = { tipo:'CORRECTIVO', sede:currentSede, placa, kmRutina:'', kmActual, taller, operario, cedula, sistema, componente, foto1:imageData['3']||'', foto2:imageData['4']||'', estado:'ABIERTO' };
+  
+  const payload = { 
+    tipo: 'CORRECTIVO', 
+    sede: currentSede, 
+    placa: placa, 
+    kmRutina: '', 
+    kmActual: kmActual, 
+    taller: taller, 
+    operario: operario, 
+    cedula: cedula, 
+    sistema: sistema, 
+    componente: componente, 
+    foto1: imageData['3'] || '', 
+    foto2: imageData['4'] || '', 
+    estado: 'ABIERTO' 
+  };
+
   try {
-    await saveToFirestore(payload); await sendToScript({ ...payload, timestamp:getTimestamp() });
-    hideLoader(); showToast('✅','Mantenimiento Correctivo registrado','success'); resetForm('correctivo');
-  } catch(e) { hideLoader(); showToast('❌','Error al guardar: '+e.message,'error-t'); }
+    // 1. Guardar en Firestore
+    await saveToFirestore(payload);
+    
+    // 2. Sincronizar en Google Sheets
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      cache: 'no-cache',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ ...payload, timestamp: getTimestamp() })
+    });
+
+    hideLoader(); 
+    showToast('✅', 'Mantenimiento Correctivo guardado en ambos sistemas', 'success'); 
+    resetForm('correctivo');
+  } catch(e) { 
+    hideLoader(); 
+    showToast('❌', 'Error al guardar: ' + e.message, 'error-t'); 
+  }
 }
 
 async function submitLlantas() {
-  const placa=document.getElementById('llan-placa').value, operario=document.getElementById('llan-operario').value;
-  const cedula=document.getElementById('llan-cedula').value, kmActual=document.getElementById('llan-km').value;
-  const taller=document.getElementById('llan-taller').value;
+  const placa = document.getElementById('llan-placa').value;
+  const operario = document.getElementById('llan-operario').value;
+  const cedula = document.getElementById('llan-cedula').value;
+  const kmActual = document.getElementById('llan-km').value;
+  const taller = document.getElementById('llan-taller').value;
+
   if (!req(placa,'Placa')||!req(operario,'Operario')||!req(cedula,'Cédula')||!req(kmActual,'Km')||!req(taller,'Taller')) return;
-  if (selectedTires.size === 0) { showToast('⚠️','Selecciona al menos una posición de llanta','error-t'); return; }
+  if (selectedTires.size === 0) { showToast('⚠️', 'Selecciona al menos una posición de llanta', 'error-t'); return; }
+  
   showLoader(`REGISTRANDO ${selectedTires.size} LLANTA(S)...`);
-  const tireLabels = { DEL_IZQ:'Delantera Izquierda', DEL_DER:'Delantera Derecha', TRA_INT_IZQ:'Trasera Interna Izq.', TRA_INT_DER:'Trasera Interna Der.', TRA_EXT_IZQ:'Trasera Externa Izq.', TRA_EXT_DER:'Trasera Externa Der.', REPUESTO:'Repuesto / Spare' };
+  const tireLabels = { 
+    DEL_IZQ: 'Delantera Izquierda', DEL_DER: 'Delantera Derecha', 
+    TRA_INT_IZQ: 'Trasera Interna Izq.', TRA_INT_DER: 'Trasera Interna Der.', 
+    TRA_EXT_IZQ: 'Trasera Externa Izq.', TRA_EXT_DER: 'Trasera Externa Der.', 
+    REPUESTO: 'Repuesto / Spare' 
+  };
+
   try {
     for (const tireId of selectedTires) {
-      const payload = { tipo:'PLAN_LLANTAS', sede:currentSede, placa, kmRutina:'', kmActual, taller, operario, cedula, sistema:'', componente:'', ubicLlantas:tireLabels[tireId]||tireId, foto1:imageData['5']||'', foto2:imageData['6']||'' };
-      await saveToFirestore(payload); await sendToScript({ ...payload, timestamp:getTimestamp() });
+      const payload = { 
+        tipo: 'PLAN_LLANTAS', 
+        sede: currentSede, 
+        placa: placa, 
+        kmRutina: '', 
+        kmActual: kmActual, 
+        taller: taller, 
+        operario: operario, 
+        cedula: cedula, 
+        sistema: '', 
+        componente: '', 
+        ubicLlantas: tireLabels[tireId] || tireId, 
+        cantLlantas: '1',
+        foto1: imageData['5'] || '', 
+        foto2: imageData['6'] || '',
+        estado: 'ABIERTO'
+      };
+      
+      // Guardar en Firestore
+      await saveToFirestore(payload); 
+      
+      // Sincronizar fila en Google Sheets
+      await fetch(SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        cache: 'no-cache',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ ...payload, timestamp: getTimestamp() })
+      });
     }
-    hideLoader(); showToast('✅',`${selectedTires.size} posición(es) de llanta registrada(s)`,'success'); resetForm('llantas');
-  } catch(e) { hideLoader(); showToast('❌','Error al guardar: '+e.message,'error-t'); }
+    
+    hideLoader(); 
+    showToast('✅', `${selectedTires.size} posición(es) de llanta registrada(s)`, 'success'); 
+    resetForm('llantas');
+  } catch(e) { 
+    hideLoader(); 
+    showToast('❌', 'Error al guardar llantas: ' + e.message, 'error-t'); 
+  }
 }
 
 // ══════════════════════════════════════════
@@ -1442,33 +1560,103 @@ function autobusquedaHoja() {
   if (placa.length >= 2) { timerBusquedaHoja = setTimeout(() => buscarHoja(), 450); }
   else if (placa.length === 0) { document.getElementById('hoja-result').innerHTML = ''; }
 }
+// 1. La función principal que solicita los datos
 async function buscarHoja() {
   const placaBusqueda = document.getElementById('hoja-placa').value.trim().toUpperCase();
   if (!placaBusqueda) return;
+
   const container = document.getElementById('hoja-result');
   const datalist = document.getElementById('lista-placas');
-  try {
-    const resp = await fetch(`${SCRIPT_URL}?action=historial&placa=${placaBusqueda}`);
-    const data = await resp.json();
-    if (data.status === 'ok' && data.records.length > 0) {
-      const placasUnicas = [...new Set(data.records.map(r => r[3]))];
-      datalist.innerHTML = placasUnicas.map(p => `<option value="${p}">`).join('');
+  
+  container.innerHTML = '<p style="color:var(--muted); font-family:var(--mono); font-size:0.8rem; padding:1rem; text-align:center;">Buscando en base de datos Firebase... ⚡</p>';
+
+  // Esperamos a que Firebase esté listo
+  waitForFirebase(async () => {
+    try {
+      const { collection, getDocs, query, where, orderBy } = window._fbModules;
+      
+      // Consultamos la colección 'registros' filtrando por la placa escrita
+      // NOTA: Si quieres búsquedas parciales (coincidencias), Firebase requiere que sea exacto o usar trucos de strings.
+      // Por consistencia, buscaremos la coincidencia exacta de la placa.
+      const q = query(
+        collection(window._db, 'registros'), 
+        where('placa', '==', placaBusqueda)
+      );
+      
+      const snap = await getDocs(q);
+      
+      if (snap.empty) {
+        container.innerHTML = '<p style="color:var(--muted); font-size:0.85rem; padding:1rem; text-align:center;">No se encontraron registros exactos para esta placa.</p>';
+        return;
+      }
+
+      // Procesamos los registros encontrados en Firebase
+      const records = [];
+      snap.forEach(docSnap => {
+        records.push(docSnap.data());
+      });
+
+      // Ordenamos por fecha (del más reciente al más antiguo) de manera manual por si no hay índice compuesto
+      records.sort((a, b) => {
+        const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp || 0);
+        const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp || 0);
+        return dateB - dateA;
+      });
+
+      // Llenamos la lista de sugerencias (datalist) con la placa encontrada
+      datalist.innerHTML = `<option value="${placaBusqueda}">`;
+
       const pdfId = 'hoja-pdf-' + Date.now();
-      container.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;"><div style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);">${data.records.length} REGISTRO(S) ENCONTRADOS</div><button onclick="generatePDF('${pdfId}','${placaBusqueda}')" style="background:var(--accent2);color:#fff;border:none;border-radius:3px;padding:0.4rem 0.85rem;cursor:pointer;font-family:var(--mono);font-size:0.75rem;">📄 GENERAR PDF</button></div>`;
+      container.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+          <div style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);">${records.length} REGISTRO(S) ENCONTRADOS</div>
+          <button onclick="generatePDF('${pdfId}','${placaBusqueda}')" style="background:var(--accent2);color:#fff;border:none;border-radius:3px;padding:0.4rem 0.85rem;cursor:pointer;font-family:var(--mono);font-size:0.75rem;">📄 GENERAR PDF</button>
+        </div>`;
+
       const tableWrap = document.createElement('div');
-      tableWrap.id = pdfId; tableWrap.style.cssText = 'overflow-x:auto;';
-      const table = document.createElement('table'); table.className = 'hist-table';
+      tableWrap.id = pdfId; 
+      tableWrap.style.cssText = 'overflow-x:auto;';
+      
+      const table = document.createElement('table'); 
+      table.className = 'hist-table';
       table.innerHTML = `<thead><tr><th>FECHA</th><th>PLACA</th><th>TIPO</th><th>OPERARIO</th><th>KM</th><th>SISTEMA</th><th>TALLER</th><th>FOTOS</th></tr></thead><tbody></tbody>`;
+      
       const tbody = table.querySelector('tbody');
-      data.records.forEach(r => {
+
+      records.forEach(r => {
         const tr = document.createElement('tr');
-        const tipoCls = r[2]==='PREVENTIVO'?'tipo-prev':r[2]==='CORRECTIVO'?'tipo-corr':'tipo-llan';
-        tr.innerHTML = `<td style="font-family:var(--mono);font-size:0.72rem;">${r[0]}</td><td style="font-weight:bold;color:var(--accent);">${r[3]}</td><td><span class="tipo-badge ${tipoCls}">${r[2]||'—'}</span></td><td style="font-size:0.75rem;">${r[4]||'—'}</td><td style="font-family:var(--mono);">${r[6]||'—'}</td><td>${r[8]||'—'}</td><td>${r[12]||'—'}</td><td>${r[13]?`<a href="${r[13]}" target="_blank" style="color:var(--accent2);text-decoration:none;">[F1]</a>`:''} ${r[14]?`<a href="${r[14]}" target="_blank" style="color:var(--accent2);text-decoration:none;">[F2]</a>`:''}</td>`;
+        const tipoCls = r.tipo === 'PREVENTIVO' ? 'tipo-prev' : r.tipo === 'CORRECTIVO' ? 'tipo-corr' : 'tipo-llan';
+        
+        // Formatear la fecha para que se vea amigable
+        const fechaTexto = r.timestamp?.toDate ? r.timestamp.toDate().toLocaleString('es-CO') : (r.timestamp || '—');
+        
+        // Extraer las URLs de las fotos guardadas en el objeto
+        const f1 = r.foto1 || '';
+        const f2 = r.foto2 || '';
+
+        tr.innerHTML = `
+          <td style="font-family:var(--mono);font-size:0.72rem;">${fechaTexto}</td>
+          <td style="font-weight:bold;color:var(--accent);">${r.placa || '—'}</td>
+          <td><span class="tipo-badge ${tipoCls}">${r.tipo || '—'}</span></td>
+          <td style="font-size:0.75rem;">${r.operario || '—'}</td>
+          <td style="font-family:var(--mono);">${r.kmActual || '—'}</td>
+          <td>${r.sistema || '—'}</td>
+          <td>${r.taller || '—'}</td>
+          <td>
+            ${f1 ? `<a href="${f1}" target="_blank" style="color:var(--accent2);text-decoration:none;">[F1]</a>` : ''} 
+            ${f2 ? `<a href="${f2}" target="_blank" style="color:var(--accent2);text-decoration:none;margin-left:4px;">[F2]</a>` : ''}
+          </td>`;
         tbody.appendChild(tr);
       });
-      tableWrap.appendChild(table); container.appendChild(tableWrap);
+
+      tableWrap.appendChild(table); 
+      container.appendChild(tableWrap);
+
+    } catch(e) {
+      console.error("Error cargando historial desde Firebase:", e);
+      container.innerHTML = `<p style="color:var(--red); font-size:0.85rem; padding:1rem;">Error al consultar base de datos: ${e.message}</p>`;
     }
-  } catch(e) { console.error("Error cargando historial:", e); }
+  });
 }
 function generatePDF(containerId, placa) {
   const el = document.getElementById(containerId); if (!el) return;
