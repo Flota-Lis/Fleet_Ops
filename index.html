@@ -1709,68 +1709,46 @@ async function enviarAlertasCorreo() {
     // 1. Guardar el reporte en Firestore (Manteniendo el flujo actual)
     await guardarReporteFirestore();
     
-    // 2. Clasificar para el resumen superior
-    const criticas = alertas.filter(a => a.estadoRutina === 'critico');
-    const proximas = alertas.filter(a => ['alerta', 'pasado'].includes(a.estadoRutina));
     const fechaActual = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
 
-    // 3. Construir las filas de la tabla con estilos en línea muy elegantes
-    const tablaRows = alertas.map(r => {
+    // 2. Construir la tabla en Bloque de Texto Puro Alineado (Diseño de Consola)
+    let cuerpoTexto = `====================================================================\n`;
+    cuerpoTexto += `    ⚠️  FLEETOPS — ALERTA DE MANTENIMIENTO VEHICULAR  ⚠️\n`;
+    cuerpoTexto += `====================================================================\n`;
+    cuerpoTexto += ` Reporte Consolidado Semanal  |  Fecha: ${fechaActual}\n`;
+    cuerpoTexto += ` Alertas detectadas: ${alertas.length} vehículo(s) en total.\n`;
+    cuerpoTexto += `--------------------------------------------------------------------\n\n`;
+    cuerpoTexto += ` Buen día,\n\n`;
+    cuerpoTexto += ` Se consolidó el reporte semanal de kilometraje para las sedes.\n`;
+    cuerpoTexto += ` A continuación, se detallan los vehículos que requieren atención:\n\n`;
+
+    alertas.forEach((r, idx) => {
       const esCritico = r.estadoRutina === 'critico' || r.estadoRutina === 'pasado';
-      const bgStyle = esCritico ? 'background-color: #fef2f2; color: #991b1b;' : 'background-color: #fffbeb; color: #92400e;';
-      const badge = esCritico ? '🔴 VENCIDA' : '🟡 PRÓXIMA';
+      const indicador = esCritico ? ' [🔴 VENCIDA] ' : ' [🟡 PRÓXIMA] ';
       
-      return `
-        <tr style="${bgStyle}">
-          <td style="padding: 10px 12px; font-weight: bold; font-family: monospace; border-bottom: 1px solid #e5e7eb;">${r.placa}</td>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">${r.sede}</td>
-          <td style="padding: 10px 12px; text-align: right; font-family: monospace; border-bottom: 1px solid #e5e7eb;">${Number(r.kmActual).toLocaleString()}</td>
-          <td style="padding: 10px 12px; text-align: right; font-family: monospace; border-bottom: 1px solid #e5e7eb;">${r.kmRutina ? Number(r.kmRutina).toLocaleString() : '—'}</td>
-          <td style="padding: 10px 12px; font-size: 11px; font-weight: 500; border-bottom: 1px solid #e5e7eb;"><strong>${badge}</strong><br><span style="color:#6b7280; font-size:10px;">${r.mensajeRutina}</span></td>
-        </tr>
-      `;
-    }).join('');
+      // Formatear números con separador de miles
+      const kmAct = Number(r.kmActual).toLocaleString('es-CO');
+      const kmRut = r.kmRutina ? Number(r.kmRutina).toLocaleString('es-CO') : '—';
 
-    // 4. Armar el diseño HTML completo (Estilo FleetOps)
-    const disenoHtml = `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; color: #1f2937; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-        <div style="background-color: #1a1a2e; padding: 24px; text-align: left;">
-          <h2 style="color: #f59e0b; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">⚠ FleetOps — Alerta de Mantenimiento</h2>
-          <p style="color: #9ca3af; margin: 6px 0 0; font-size: 12px; font-family: monospace;">Reporte generado: ${fechaActual}</p>
-        </div>
-        
-        <div style="padding: 24px; background-color: #fafafa;">
-          <p style="font-size: 15px; line-height: 1.5; color: #374151; margin-top: 0;">
-            Buen día, se consolidó el reporte semanal de kilometraje. Se identificaron 
-            <strong style="color: #ef4444;">${alertas.length} vehículo(s)</strong> que requieren intervención inmediata:
-          </p>
-          
-          <table style="width: 100%; border-collapse: collapse; margin: 18px 0; background-color: #ffffff; font-size: 13px; border-radius: 4px; overflow: hidden; border: 1px solid #e5e7eb;">
-            <thead>
-              <tr style="background-color: #2e2e48; color: #ffffff;">
-                <th style="padding: 10px 12px; text-align: left; font-weight: 600;">PLACA</th>
-                <th style="padding: 10px 12px; text-align: left; font-weight: 600;">SEDE</th>
-                <th style="padding: 10px 12px; text-align: right; font-weight: 600;">KM ACTUAL</th>
-                <th style="padding: 10px 12px; text-align: right; font-weight: 600;">KM RUTINA</th>
-                <th style="padding: 10px 12px; text-align: left; font-weight: 600;">ESTADO / ALERTA</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tablaRows}
-            </tbody>
-          </table>
-          
-          <p style="font-size: 11px; color: #9ca3af; margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 12px; text-align: center;">
-            Este es un correo automático del sistema FleetOps v3.0. Por favor, gestione las órdenes en los talleres asignados.
-          </p>
-        </div>
-      </div>
-    `;
+      cuerpoTexto += ` 📌 VEHÍCULO #${idx + 1}\n`;
+      cuerpoTexto += `    • PLACA:     ${r.placa.padEnd(10, ' ')} | SEDE:       ${r.sede}\n`;
+      cuerpoTexto += `    • KM ACTUAL: ${kmAct.padEnd(10, ' ')} | KM RUTINA:  ${kmRut}\n`;
+      cuerpoTexto += `    • ESTADO:    ${indicador} -> ${r.mensajeRutina}\n`;
+      if (r.deltaKm) {
+        cuerpoTexto += `    • RECORRIDO: +${Number(r.deltaKm).toLocaleString('es-CO')} km en la semana\n`;
+      }
+      cuerpoTexto += ` --------------------------------------------------------------------\n`;
+    });
 
-    // 5. El link de tu Formspree
+    cuerpoTexto += `\n ✉️ NOTA: Por favor, gestione las órdenes de servicio en las\n`;
+    cuerpoTexto += ` plataformas de los talleres asignados a la mayor brevedad.\n\n`;
+    cuerpoTexto += `====================================================================\n`;
+    cuerpoTexto += ` Generado automáticamente por FleetOps v3.0 — No responder a este correo.`;
+
+    // 3. Tu enlace de Formspree
     const FORMSPREEE_URL = 'https://formspree.io/f/xzdwrrvg'; 
 
-    // Enviamos el HTML completo dentro de una sola variable que Formspree va a renderizar bien
+    // Enviamos el mensaje estructurado
     const response = await fetch(FORMSPREEE_URL, {
       method: 'POST',
       headers: {
@@ -1780,8 +1758,8 @@ async function enviarAlertasCorreo() {
       body: JSON.stringify({
         _subject: `[FleetOps] ⚠ ${alertas.length} vehículo(s) requieren mantenimiento`,
         _to: 'supervisorflt.girardota@lis.com.co,profesional.flota@lis.com.co,wilmer.rodriguez@ab-inbev.com',
-        // Truco: le pasamos el diseño HTML en un campo con formato de bloque
-        "REPORTE DETALLADO": disenoHtml 
+        // Le damos un nombre de campo limpio para que Formspree lo ponga como título
+        "RESUMEN DE ALERTAS PENDIENTES": cuerpoTexto
       })
     });
     
