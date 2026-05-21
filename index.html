@@ -1703,35 +1703,100 @@ async function enviarAlertasCorreo() {
   const alertas = kmSemanalData.filter(r => ['critico','pasado','alerta','km_bajo','km_alto'].includes(r.estadoGlobal));
   if (!alertas.length) { showToast('ℹ️','No hay alertas para enviar','error-t'); return; }
   if (!confirm(`Se enviarán ${alertas.length} alertas por correo y se guardará este reporte en Firestore como referencia para la próxima semana. ¿Continuar?`)) return;
+  
   showLoader('GUARDANDO Y ENVIANDO CORREO...');
   try {
+    // 1. Guardar el reporte en Firestore (Manteniendo el flujo actual)
     await guardarReporteFirestore();
-    await fetch(SCRIPT_URL, {
-      method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'},
+    
+    // 2. Clasificar para el resumen superior
+    const criticas = alertas.filter(a => a.estadoRutina === 'critico');
+    const proximas = alertas.filter(a => ['alerta', 'pasado'].includes(a.estadoRutina));
+    const fechaActual = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
+
+    // 3. Construir las filas de la tabla con estilos en línea muy elegantes
+    const tablaRows = alertas.map(r => {
+      const esCritico = r.estadoRutina === 'critico' || r.estadoRutina === 'pasado';
+      const bgStyle = esCritico ? 'background-color: #fef2f2; color: #991b1b;' : 'background-color: #fffbeb; color: #92400e;';
+      const badge = esCritico ? '🔴 VENCIDA' : '🟡 PRÓXIMA';
+      
+      return `
+        <tr style="${bgStyle}">
+          <td style="padding: 10px 12px; font-weight: bold; font-family: monospace; border-bottom: 1px solid #e5e7eb;">${r.placa}</td>
+          <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">${r.sede}</td>
+          <td style="padding: 10px 12px; text-align: right; font-family: monospace; border-bottom: 1px solid #e5e7eb;">${Number(r.kmActual).toLocaleString()}</td>
+          <td style="padding: 10px 12px; text-align: right; font-family: monospace; border-bottom: 1px solid #e5e7eb;">${r.kmRutina ? Number(r.kmRutina).toLocaleString() : '—'}</td>
+          <td style="padding: 10px 12px; font-size: 11px; font-weight: 500; border-bottom: 1px solid #e5e7eb;"><strong>${badge}</strong><br><span style="color:#6b7280; font-size:10px;">${r.mensajeRutina}</span></td>
+        </tr>
+      `;
+    }).join('');
+
+    // 4. Armar el diseño HTML completo (Estilo FleetOps)
+    const disenoHtml = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; color: #1f2937; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        <div style="background-color: #1a1a2e; padding: 24px; text-align: left;">
+          <h2 style="color: #f59e0b; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">⚠ FleetOps — Alerta de Mantenimiento</h2>
+          <p style="color: #9ca3af; margin: 6px 0 0; font-size: 12px; font-family: monospace;">Reporte generado: ${fechaActual}</p>
+        </div>
+        
+        <div style="padding: 24px; background-color: #fafafa;">
+          <p style="font-size: 15px; line-height: 1.5; color: #374151; margin-top: 0;">
+            Buen día, se consolidó el reporte semanal de kilometraje. Se identificaron 
+            <strong style="color: #ef4444;">${alertas.length} vehículo(s)</strong> que requieren intervención inmediata:
+          </p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 18px 0; background-color: #ffffff; font-size: 13px; border-radius: 4px; overflow: hidden; border: 1px solid #e5e7eb;">
+            <thead>
+              <tr style="background-color: #2e2e48; color: #ffffff;">
+                <th style="padding: 10px 12px; text-align: left; font-weight: 600;">PLACA</th>
+                <th style="padding: 10px 12px; text-align: left; font-weight: 600;">SEDE</th>
+                <th style="padding: 10px 12px; text-align: right; font-weight: 600;">KM ACTUAL</th>
+                <th style="padding: 10px 12px; text-align: right; font-weight: 600;">KM RUTINA</th>
+                <th style="padding: 10px 12px; text-align: left; font-weight: 600;">ESTADO / ALERTA</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tablaRows}
+            </tbody>
+          </table>
+          
+          <p style="font-size: 11px; color: #9ca3af; margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 12px; text-align: center;">
+            Este es un correo automático del sistema FleetOps v3.0. Por favor, gestione las órdenes en los talleres asignados.
+          </p>
+        </div>
+      </div>
+    `;
+
+    // 5. El link de tu Formspree
+    const FORMSPREEE_URL = 'https://formspree.io/f/xzdwrrvg'; 
+
+    // Enviamos el HTML completo dentro de una sola variable que Formspree va a renderizar bien
+    const response = await fetch(FORMSPREEE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
       body: JSON.stringify({
-        tipo: 'ALERTA_KM_SEMANAL',
-        fecha: new Date().toLocaleString('es-CO',{timeZone:'America/Bogota'}),
-        alertas: alertas.map(r => ({
-          placa:r.placa, sede:r.sede,
-          kmActual:r.kmActualEditado??r.kmActual, kmRutina:r.kmRutina,
-          diferencia:r.diferencia, estadoRutina:r.estadoRutina, mensajeRutina:r.mensajeRutina,
-          deltaKm:r.deltaKm, estadoSemanal:r.estadoSemanal, mensajeSemanal:r.mensajeSemanal
-        }))
+        _subject: `[FleetOps] ⚠ ${alertas.length} vehículo(s) requieren mantenimiento`,
+        _to: 'supervisorflt.girardota@lis.com.co,profesional.flota@lis.com.co,wilmer.rodriguez@ab-inbev.com',
+        // Truco: le pasamos el diseño HTML en un campo con formato de bloque
+        "REPORTE DETALLADO": disenoHtml 
       })
     });
-    hideLoader();
-    showToast('✅',`Correo enviado y reporte guardado (${alertas.length} alertas)`,'success');
-    document.getElementById('km-ultimo-reporte').textContent = `Último reporte guardado: hoy (${kmSemanalData.length} placas)`;
-  } catch(e) { hideLoader(); showToast('❌','Error: '+e.message,'error-t'); }
+    
+    if (response.ok) {
+      hideLoader();
+      showToast('✅', `Alertas enviadas y reporte guardado con éxito`, 'success');
+      document.getElementById('km-ultimo-reporte').textContent = `Último reporte guardado: hoy (${kmSemanalData.length} placas)`;
+    } else {
+      throw new Error('El servidor de correo externo rechazó la petición');
+    }
+  } catch(e) { 
+    hideLoader(); 
+    showToast('❌', 'Error al procesar: ' + e.message, 'error-t'); 
+  }
 }
-
-function descargarPlantillaKm() {
-  const ws = XLSX.utils.aoa_to_sheet([['PLACA','KM_ACTUAL'],['ABC123',45000],['XYZ789',32000]]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'KM_Semanal');
-  XLSX.writeFile(wb, 'Plantilla_KM_Semanal.xlsx');
-}
-
 // ══════════════════════════════════════════
 //  DASHBOARD
 // ══════════════════════════════════════════
