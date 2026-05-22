@@ -1327,6 +1327,7 @@ async function actualizarKmRutina(placa, kmActual) {
 //  SUBMITS
 // ══════════════════════════════════════════
 async function submitPreventivo() {
+  // 1. Capturar los valores del formulario primero
   const placa = document.getElementById('prev-placa').value;
   const kmRutina = document.getElementById('prev-km-rutina').value;
   const kmActual = document.getElementById('prev-km-actual').value;
@@ -1334,8 +1335,18 @@ async function submitPreventivo() {
   const operario = document.getElementById('prev-operario').value;
   const cedula = document.getElementById('prev-cedula').value;
 
-  if (!req(placa,'Placa')||!req(kmActual,'Km Actual')||!req(taller,'Taller')||!req(operario,'Operario')||!req(cedula,'Cédula')) return;
+  // 2. Validar que la Sede actual exista y no esté vacía
+  if (!currentSede) {
+    showToast('⚠️', 'Error: No se ha detectado la Sede actual. Recarga la página.', 'error-t');
+    return;
+  }
+
+  // 3. Validar el resto de los campos requeridos
+  if (!req(placa, 'Placa') || !req(kmActual, 'Km Actual') || !req(taller, 'Taller') || !req(operario, 'Operario') || !req(cedula, 'Cédula')) {
+    return;
+  }
   
+  // 4. Validar el rango de kilometraje
   const alertEl = document.getElementById('km-alert');
   if (alertEl.classList.contains('error')) { 
     if (!confirm('⚠️ Km fuera del rango permitido. ¿Continuar?')) return; 
@@ -1343,6 +1354,7 @@ async function submitPreventivo() {
 
   showLoader('ENVIANDO REGISTRO...');
   
+  // 5. Armar el payload asegurando la Sede detectada
   const payload = { 
     tipo: 'PREVENTIVO', 
     sede: currentSede, 
@@ -1360,10 +1372,10 @@ async function submitPreventivo() {
   };
 
   try {
-    // 1. Guardar en Firestore de forma local e inmediata
+    // 6. Guardar en Firestore de forma local e inmediata
     const docId = await saveToFirestore(payload);
     
-    // 2. Sincronizar en Google Sheets mediante bypass de texto plano
+    // 7. Sincronizar en Google Sheets mediante bypass de texto plano
     await fetch(SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
