@@ -1115,6 +1115,7 @@ function switchTab(tab) {
   const b = document.getElementById('tab-' + tab);
   if (b) b.classList.add('active');
   if (tab === 'dashboard')  loadDashboard();
+  if (tab === 'hoja')       cargarTodasLasPlacas(); 
   if (tab === 'admin-panel') loadVehiclesAdmin();
   if (tab === 'tickets')    cargarTicketsPendientes();
   if (tab === 'km-semanal') cargarUltimoReporte();
@@ -1261,8 +1262,23 @@ async function checkRecurrence() {
   waitForFirebase(async () => {
     try {
       const { collection, getDocs, query, where } = window._fbModules;
-      const q = query(collection(window._db,'registros'), where('placa','==',placa), where('sistema','==',sistema));
-      const snap = await getDocs(q);
+      let snap;
+const exactQ = query(collection(window._db, 'registros'), where('placa', '==', placaBusqueda));
+const exactSnap = await getDocs(exactQ);
+
+if (!exactSnap.empty) {
+  snap = exactSnap;
+} else {
+  // Búsqueda parcial: traer todos y filtrar localmente
+  const allSnap = await getDocs(collection(window._db, 'registros'));
+  const filteredDocs = [];
+  allSnap.forEach(d => {
+    if (d.data().placa && d.data().placa.includes(placaBusqueda)) {
+      filteredDocs.push(d);
+    }
+  });
+  snap = { empty: filteredDocs.length === 0, forEach: (cb) => filteredDocs.forEach(cb) };
+}
       const now = Date.now(), recent = [];
       snap.forEach(d => {
         const data = d.data();
@@ -1561,115 +1577,151 @@ async function cerrarTicketFirestore(docId, placa, tipo) {
     } catch(e) { hideLoader(); showToast('❌','Error al cerrar: '+e.message,'error-t'); }
   });
 }
-
 // ══════════════════════════════════════════
-//  HOJA DE VIDA
+//  HOJA DE VIDA — búsqueda parcial en memoria
 // ══════════════════════════════════════════
 let timerBusquedaHoja;
-function autobusquedaHoja() {
-  const placa = document.getElementById('hoja-placa').value.trim();
-  clearTimeout(timerBusquedaHoja);
-  if (placa.length >= 2) { timerBusquedaHoja = setTimeout(() => buscarHoja(), 450); }
-  else if (placa.length === 0) { document.getElementById('hoja-result').innerHTML = ''; }
-}
-// 1. La función principal que solicita los datos
-async function buscarHoja() {
-  const placaBusqueda = document.getElementById('hoja-placa').value.trim().toUpperCase();
-  if (!placaBusqueda) return;
+let todasLasPlacas = [];
+let todosLosRegistros = [];
+let registrosCargados = false;
 
-  const container = document.getElementById('hoja-result');
-  const datalist = document.getElementById('lista-placas');
-  
-  container.innerHTML = '<p style="color:var(--muted); font-family:var(--mono); font-size:0.8rem; padding:1rem; text-align:center;">Buscando en base de datos Firebase... ⚡</p>';
-
-  // Esperamos a que Firebase esté listo
+async function cargarTodasLasPlacas() {
+  if (registrosCargados) return;
   waitForFirebase(async () => {
     try {
-      const { collection, getDocs, query, where, orderBy } = window._fbModules;
-      
-      // Consultamos la colección 'registros' filtrando por la placa escrita
-      // NOTA: Si quieres búsquedas parciales (coincidencias), Firebase requiere que sea exacto o usar trucos de strings.
-      // Por consistencia, buscaremos la coincidencia exacta de la placa.
-      const q = query(
-        collection(window._db, 'registros'), 
-        where('placa', '==', placaBusqueda)
-      );
-      
-      const snap = await getDocs(q);
-      
-      if (snap.empty) {
-        container.innerHTML = '<p style="color:var(--muted); font-size:0.85rem; padding:1rem; text-align:center;">No se encontraron registros exactos para esta placa.</p>';
-        return;
-      }
-
-      // Procesamos los registros encontrados en Firebase
-      const records = [];
-      snap.forEach(docSnap => {
-        records.push(docSnap.data());
+      const { collection, getDocs } = window._fbModules;
+      const snap = await getDocs(collection(window._db, 'registros'));
+      todosLosRegistros = [];
+      const setPlacas = new Set();
+      snap.forEach(d => {
+        const data = d.data();
+        todosLosRegistros.push(data);
+        if (data.placa) setPlacas.add(data.placa.toUpperCase().trim());
       });
-
-      // Ordenamos por fecha (del más reciente al más antiguo) de manera manual por si no hay índice compuesto
-      records.sort((a, b) => {
-        const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp || 0);
-        const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp || 0);
-        return dateB - dateA;
-      });
-
-      // Llenamos la lista de sugerencias (datalist) con la placa encontrada
-      datalist.innerHTML = `<option value="${placaBusqueda}">`;
-
-      const pdfId = 'hoja-pdf-' + Date.now();
-      container.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
-          <div style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);">${records.length} REGISTRO(S) ENCONTRADOS</div>
-          <button onclick="generatePDF('${pdfId}','${placaBusqueda}')" style="background:var(--accent2);color:#fff;border:none;border-radius:3px;padding:0.4rem 0.85rem;cursor:pointer;font-family:var(--mono);font-size:0.75rem;">📄 GENERAR PDF</button>
-        </div>`;
-
-      const tableWrap = document.createElement('div');
-      tableWrap.id = pdfId; 
-      tableWrap.style.cssText = 'overflow-x:auto;';
-      
-      const table = document.createElement('table'); 
-      table.className = 'hist-table';
-      table.innerHTML = `<thead><tr><th>FECHA</th><th>PLACA</th><th>TIPO</th><th>OPERARIO</th><th>KM</th><th>SISTEMA</th><th>TALLER</th><th>FOTOS</th></tr></thead><tbody></tbody>`;
-      
-      const tbody = table.querySelector('tbody');
-
-      records.forEach(r => {
-        const tr = document.createElement('tr');
-        const tipoCls = r.tipo === 'PREVENTIVO' ? 'tipo-prev' : r.tipo === 'CORRECTIVO' ? 'tipo-corr' : 'tipo-llan';
-        
-        // Formatear la fecha para que se vea amigable
-        const fechaTexto = r.timestamp?.toDate ? r.timestamp.toDate().toLocaleString('es-CO') : (r.timestamp || '—');
-        
-        // Extraer las URLs de las fotos guardadas en el objeto
-        const f1 = r.foto1 || '';
-        const f2 = r.foto2 || '';
-
-        tr.innerHTML = `
-          <td style="font-family:var(--mono);font-size:0.72rem;">${fechaTexto}</td>
-          <td style="font-weight:bold;color:var(--accent);">${r.placa || '—'}</td>
-          <td><span class="tipo-badge ${tipoCls}">${r.tipo || '—'}</span></td>
-          <td style="font-size:0.75rem;">${r.operario || '—'}</td>
-          <td style="font-family:var(--mono);">${r.kmActual || '—'}</td>
-          <td>${r.sistema || '—'}</td>
-          <td>${r.taller || '—'}</td>
-          <td>
-            ${f1 ? `<a href="${f1}" target="_blank" style="color:var(--accent2);text-decoration:none;">[F1]</a>` : ''} 
-            ${f2 ? `<a href="${f2}" target="_blank" style="color:var(--accent2);text-decoration:none;margin-left:4px;">[F2]</a>` : ''}
-          </td>`;
-        tbody.appendChild(tr);
-      });
-
-      tableWrap.appendChild(table); 
-      container.appendChild(tableWrap);
-
-    } catch(e) {
-      console.error("Error cargando historial desde Firebase:", e);
-      container.innerHTML = `<p style="color:var(--red); font-size:0.85rem; padding:1rem;">Error al consultar base de datos: ${e.message}</p>`;
-    }
+      todasLasPlacas = [...setPlacas].sort();
+      registrosCargados = true;
+      const datalist = document.getElementById('lista-placas');
+      datalist.innerHTML = todasLasPlacas.map(p => `<option value="${p}">`).join('');
+    } catch(e) { console.error('Error cargando registros:', e); }
   });
 }
+
+function autobusquedaHoja() {
+  const placa = document.getElementById('hoja-placa').value.trim().toUpperCase();
+  clearTimeout(timerBusquedaHoja);
+
+  const datalist = document.getElementById('lista-placas');
+  if (placa.length > 0) {
+    datalist.innerHTML = todasLasPlacas.filter(p => p.includes(placa))
+      .map(p => `<option value="${p}">`).join('');
+  } else {
+    datalist.innerHTML = todasLasPlacas.map(p => `<option value="${p}">`).join('');
+    document.getElementById('hoja-result').innerHTML = '';
+    return;
+  }
+
+  if (placa.length >= 2) {
+    if (registrosCargados) {
+      timerBusquedaHoja = setTimeout(() => buscarHojaLocal(placa), 200);
+    } else {
+      timerBusquedaHoja = setTimeout(() => autobusquedaHoja(), 400);
+    }
+  }
+}
+
+function buscarHojaLocal(placaBusqueda) {
+  const container = document.getElementById('hoja-result');
+
+  if (!registrosCargados) {
+    container.innerHTML = '<p style="color:var(--muted);font-family:var(--mono);font-size:0.8rem;padding:1rem;text-align:center;">Cargando base de datos... ⚡</p>';
+    setTimeout(() => buscarHojaLocal(placaBusqueda), 500);
+    return;
+  }
+
+  const records = todosLosRegistros.filter(r =>
+    r.placa && r.placa.toUpperCase().includes(placaBusqueda)
+  );
+
+  if (!records.length) {
+    container.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;padding:1rem;text-align:center;">Sin registros para "${placaBusqueda}"</p>`;
+    return;
+  }
+
+  records.sort((a, b) => {
+    const dA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp || 0);
+    const dB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp || 0);
+    return dB - dA;
+  });
+
+  const placasEncontradas = [...new Set(records.map(r => r.placa.toUpperCase()))].sort();
+  const pdfId = 'hoja-pdf-' + Date.now();
+
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
+      <div style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);">
+        ${records.length} REGISTRO(S) — PLACAS: ${placasEncontradas.join(', ')}
+      </div>
+      <button onclick="generatePDF('${pdfId}','${placaBusqueda}')"
+        style="background:var(--accent2);color:#fff;border:none;border-radius:3px;padding:0.4rem 0.85rem;cursor:pointer;font-family:var(--mono);font-size:0.75rem;">
+        📄 GENERAR PDF
+      </button>
+    </div>`;
+
+  const tableWrap = document.createElement('div');
+  tableWrap.id = pdfId;
+  tableWrap.style.cssText = 'overflow-x:auto;';
+
+  const table = document.createElement('table');
+  table.className = 'hist-table';
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>FECHA</th><th>PLACA</th><th>TIPO</th><th>OPERARIO</th>
+        <th>KM</th><th>SISTEMA</th><th>TALLER</th><th>FOTOS</th>
+      </tr>
+    </thead><tbody></tbody>`;
+
+  const tbody = table.querySelector('tbody');
+  records.forEach(r => {
+    const tr = document.createElement('tr');
+    const tipoCls = r.tipo === 'PREVENTIVO' ? 'tipo-prev'
+                  : r.tipo === 'CORRECTIVO' ? 'tipo-corr' : 'tipo-llan';
+    const fechaTexto = r.timestamp?.toDate
+      ? r.timestamp.toDate().toLocaleString('es-CO')
+      : (r.timestamp || '—');
+    const f1 = r.foto1 || '';
+    const f2 = r.foto2 || '';
+    tr.innerHTML = `
+      <td style="font-family:var(--mono);font-size:0.72rem;">${fechaTexto}</td>
+      <td style="font-weight:bold;color:var(--accent);">${r.placa || '—'}</td>
+      <td><span class="tipo-badge ${tipoCls}">${r.tipo || '—'}</span></td>
+      <td style="font-size:0.75rem;">${r.operario || '—'}</td>
+      <td style="font-family:var(--mono);">${r.kmActual || '—'}</td>
+      <td>${r.sistema || '—'}</td>
+      <td>${r.taller || '—'}</td>
+      <td>
+        ${f1 ? `<a href="${f1}" target="_blank" style="color:var(--accent2);text-decoration:none;">[F1]</a>` : ''}
+        ${f2 ? `<a href="${f2}" target="_blank" style="color:var(--accent2);text-decoration:none;margin-left:4px;">[F2]</a>` : ''}
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  tableWrap.appendChild(table);
+  container.appendChild(tableWrap);
+}
+
+// Botón BUSCAR → usa el mismo caché
+async function buscarHoja() {
+  const placa = document.getElementById('hoja-placa').value.trim().toUpperCase();
+  if (!placa) return;
+  if (!registrosCargados) {
+    document.getElementById('hoja-result').innerHTML =
+      '<p style="color:var(--muted);font-family:var(--mono);font-size:0.8rem;padding:1rem;text-align:center;">Cargando... espera un momento ⚡</p>';
+    await new Promise(res => setTimeout(res, 800));
+  }
+  buscarHojaLocal(placa);
+}
+
 function generatePDF(containerId, placa) {
   const el = document.getElementById(containerId); if (!el) return;
   showLoader('GENERANDO PDF...');
